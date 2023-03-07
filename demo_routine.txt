@@ -1,0 +1,356 @@
+MODULE MainModule
+    ! Socket related variables
+    VAR socketdev serverSocket;
+    VAR socketdev clientSocket;
+    VAR bool connect_:=TRUE;
+    VAR bool connect_1:=TRUE;
+
+    ! FORMAT: "x,y,z,q1,q2,q3,q4,cf1,cf4,cf6,cfx," 
+    !VAR string data:="326.30,-435.73,204.81,1,0,0,0,1,-1,1,4,";
+    VAR string d:="";
+
+    VAR string stat:="";
+    VAR string ack:="";
+    VAR robTarget objTarget;
+    VAR robTarget pick_mod;
+    VAR jointtarget objJoint;
+
+    VAR jointtarget Start_;
+    VAR jointtarget Stop_;
+
+    VAR robTarget Stop_c;
+
+    VAR num count:=1;
+
+    VAR num nCount:=1;
+    PERS robtarget recPose{61};
+    PERS jointtarget recJoint{61};
+
+
+
+    PERS wobjdata currentWobj:=[FALSE,TRUE,"",[[385.27,-122.23,125.45],[0.17560,0.88494,-0.04215,0.42925]],[[0,0,0],[1,0,0,0]]];
+    VAR bool moveCompleted;
+
+    ! Robot Constants
+    CONST jointtarget Home:=[[-11.35,-23.82,63.84,78.61,67.74,90.27],[-1.05,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST jointtarget Pick:=[[-2.86,33.31,13.72,91.15,15.90,-5.65],[30.83,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    VAR jointtarget Intr:=[[37.41,-31.02,-2.57,-12.53,76.73,99.08],[63.25,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST jointtarget Drop:=[[92.76,34.59,-30.47,-58.17,62.67,103.17],[1.41,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST jointtarget Home_0:=[[0,0,0,0,0,0],[0,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST jointtarget Home_calib:=[[0,-130,30,0,40,0],[135,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST jointtarget Home_default:=[[-76.8967,-28.9329,25.3776,89.4051,77.2713,-64.8495],[57.5165,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robTarget Home_default_c:=[[494.803,22.9747,236.229],[0.0165356,0.0396729,0.998926,0.0173008],[-1,1,-1,4],[-165.621,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    VAR robTarget Axis;
+
+    ! Via points test
+    CONST jointtarget Home_start:=[[43.33,-43.57,65.43,86.69,12.22,-22.05],[-18.98,9E+09,9E+09,9E+09,9E+09,9E+09]];
+
+
+    CONST jointtarget J122_j:=[[49.05,17.15,4.92,101.52,8.65,-30.07],[0.98,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robtarget J122:=[[444.77,237.75,32.36],[0.00428,0.41648,0.90484,0.08830],[1,1,0,0],[-30.07,9E9,9E9,9E9,9E9,9E9]];
+
+    CONST jointtarget Home_start_dex:=[[-21.90,-71.41,3.83,69.91,96.27,0],[17.64,9E+09,9E+09,9E+09,9E+09,9E+09]];
+
+
+    VAR errnum myerrnum;
+    TASK PERS tooldata tool_manual:=[TRUE,[[0,0,136],[1,0,0,0]],[0.244,[7.5,11.8,52.7],[1,0,0,0],0.00021,0.00023,8E-05]];
+    CONST robTarget recArray_1{6}:=[[[354.034,-171.39,24.8767],[0.00348164,-0.0112128,-0.999567,-0.0269815],[-2,1,-1,4],[-158.249,9E+09,9E+09,9E+09,9E+09,9E+09]],[[389.192,-172.853,25.7442],[0.0343562,-0.014726,0.999062,0.0218427],[-2,1,-1,4],[-161.228,9E+09,9E+09,9E+09,9E+09,9E+09]],[[421.805,-172.577,26.3256],[0.0314485,-0.0688134,0.997113,0.00650378],[-2,1,-1,4],[-164.799,9E+09,9E+09,9E+09,9E+09,9E+09]],[[455.485,-172.825,27.0613],[0.00101714,0.0674394,-0.99748,0.0220031],[-2,1,-1,4],[-170.49,9E+09,9E+09,9E+09,9E+09,9E+09]],[[494.177,-172.264,28.1036],[0.0319232,-0.100295,0.99398,-0.0304236],[-2,1,-1,4],[-178.541,9E+09,9E+09,9E+09,9E+09,9E+09]],[[532.024,-171.343,29.1923],[0.0515861,-0.157794,0.986119,0.00310053],[-2,1,-1,4],[178.097,9E+09,9E+09,9E+09,9E+09,9E+09]]];
+    CONST robTarget recArray_2{6}:=[[[350.221,-126.085,24.6848],[0.0217412,-0.0420803,-0.99881,-0.0115852],[-2,1,-1,4],[-142.096,9E+09,9E+09,9E+09,9E+09,9E+09]],[[390.859,-127.051,25.6683],[0.00194265,0.00462136,-0.999954,0.00817301],[-2,1,-1,4],[-143.864,9E+09,9E+09,9E+09,9E+09,9E+09]],[[425.131,-125.918,26.5328],[0.00221381,-0.0620035,0.997683,-0.0279163],[-2,1,-1,4],[-145.418,9E+09,9E+09,9E+09,9E+09,9E+09]],[[458.469,-120.889,27.1945],[0.0348345,-0.0868492,0.995388,-0.0211166],[-2,1,-1,4],[-147.631,9E+09,9E+09,9E+09,9E+09,9E+09]],[[493.115,-121.025,27.9851],[0.0438465,-0.157391,0.986559,-0.00256698],[-2,1,-1,4],[-155.382,9E+09,9E+09,9E+09,9E+09,9E+09]],[[533.603,-120.656,29.1092],[0.0563432,-0.230323,0.971233,-0.0219845],[-2,1,-1,4],[-162.5,9E+09,9E+09,9E+09,9E+09,9E+09]]];
+    CONST robTarget recArray_3{6}:=[[[352.135,-75.2165,25.3599],[0.0086354,-0.0248218,-0.999645,-0.00432574],[-2,1,-1,4],[-136.822,9E+09,9E+09,9E+09,9E+09,9E+09]],[[393.115,-76.2549,25.6409],[0.00302137,-0.0455974,0.998842,0.0150331],[-2,1,-1,4],[-140.857,9E+09,9E+09,9E+09,9E+09,9E+09]],[[420.881,-75.7229,26.4387],[0.0337021,-0.060121,0.997511,0.0148728],[-2,1,-1,4],[-142.441,9E+09,9E+09,9E+09,9E+09,9E+09]],[[458.232,-72.3677,27.3491],[0.047595,-0.111132,0.992646,-0.00626688],[-2,1,-1,4],[-143.65,9E+09,9E+09,9E+09,9E+09,9E+09]],[[494.729,-71.8809,28.5108],[0.0768891,-0.167425,0.982381,0.0313734],[-2,1,-1,4],[-151.97,9E+09,9E+09,9E+09,9E+09,9E+09]],[[535.752,-75.5232,29.3819],[0.0301138,-0.310237,0.949954,0.0208137],[-2,1,-1,4],[-165.068,9E+09,9E+09,9E+09,9E+09,9E+09]]];
+    CONST robTarget recArray_4{6}:=[[[350.035,-25.0464,24.9527],[0.00288548,-0.0086515,-0.999025,-0.0431918],[-1,1,-1,4],[-132.328,9E+09,9E+09,9E+09,9E+09,9E+09]],[[390.534,-25.8391,25.8952],[0.0174899,-0.0341483,0.999152,0.0149165],[-1,1,-1,4],[-132.859,9E+09,9E+09,9E+09,9E+09,9E+09]],[[420.496,-27.5748,26.6908],[0.0285816,-0.0854386,0.995812,0.0155761],[-1,1,-1,4],[-135.36,9E+09,9E+09,9E+09,9E+09,9E+09]],[[455.805,-22.3678,27.3797],[0.0103093,-0.163832,0.986397,0.00860807],[-1,1,-1,4],[-137.753,9E+09,9E+09,9E+09,9E+09,9E+09]],[[492.114,-25.5671,28.2475],[0.0107943,-0.242768,0.969816,0.0200836],[-1,1,-1,4],[-144.539,9E+09,9E+09,9E+09,9E+09,9E+09]],[[532.637,-28.4341,29.1938],[0.0217633,-0.318069,0.947612,0.0197542],[-1,1,-1,4],[-153.919,9E+09,9E+09,9E+09,9E+09,9E+09]]];
+    CONST robTarget recArray_5{6}:=[[[350.324,28.095,24.9245],[0.0396695,0.0341234,-0.998481,-0.017278],[-1,1,-1,4],[-123.168,9E+09,9E+09,9E+09,9E+09,9E+09]],[[385.753,22.9134,25.7738],[0.00846662,0.0640625,-0.997817,-0.0136531],[-1,1,-1,4],[-124.937,9E+09,9E+09,9E+09,9E+09,9E+09]],[[420.421,22.6466,26.5329],[0.00868083,-0.112325,0.993573,-0.0109992],[-1,1,-1,4],[-125.479,9E+09,9E+09,9E+09,9E+09,9E+09]],[[455.288,27.389,27.4422],[0.046717,-0.122781,0.991294,0.00887986],[-1,1,-1,4],[-127.473,9E+09,9E+09,9E+09,9E+09,9E+09]],[[493.142,24.3078,28.4129],[0.057938,-0.185361,0.980675,0.0236808],[-1,1,-1,4],[-132.211,9E+09,9E+09,9E+09,9E+09,9E+09]],[[532.555,24.1897,29.3591],[0.00850182,-0.386261,0.92186,0.0300692],[-1,1,-1,4],[-140.542,9E+09,9E+09,9E+09,9E+09,9E+09]]];
+    CONST robTarget recArray_6{6}:=[[[351.81,80.0946,25.0217],[0.0286835,0.0362566,-0.998626,-0.024673],[-1,1,-1,4],[-117.027,9E+09,9E+09,9E+09,9E+09,9E+09]],[[388.315,79.7548,25.9098],[1.77156E-05,-0.0853228,0.995948,0.028424],[-1,1,-1,4],[-118.199,9E+09,9E+09,9E+09,9E+09,9E+09]],[[416.494,75.6381,26.4214],[0.023695,-0.0999306,0.994675,0.00854978],[-1,1,-1,4],[-118.803,9E+09,9E+09,9E+09,9E+09,9E+09]],[[454.414,81.5951,27.4416],[0.0455758,-0.155958,0.986712,0.000536973],[-1,1,-1,4],[-119.42,9E+09,9E+09,9E+09,9E+09,9E+09]],[[493.785,79.4625,28.5391],[0.08619,-0.177501,0.980337,-0.00186527],[-1,1,-1,4],[-121.522,9E+09,9E+09,9E+09,9E+09,9E+09]],[[530.544,77.8361,29.5773],[0.0501785,0.635495,-0.770348,-0.0138505],[-1,1,-1,4],[-127.881,9E+09,9E+09,9E+09,9E+09,9E+09]]];
+    CONST robTarget recArray_7{6}:=[[[347.019,137.669,24.8818],[0.0551607,0.12183,-0.989714,-0.0508115],[-1,1,-1,4],[-114.496,9E+09,9E+09,9E+09,9E+09,9E+09]],[[380.481,134.664,25.5764],[0.0220693,0.129952,-0.990724,-0.0330379],[-1,1,-1,4],[-114.817,9E+09,9E+09,9E+09,9E+09,9E+09]],[[415.228,137.19,26.4656],[0.0118421,-0.141863,0.989646,0.0183365],[-1,1,-1,4],[-114.874,9E+09,9E+09,9E+09,9E+09,9E+09]],[[451.009,136.894,27.4346],[0.0465127,-0.162969,0.985505,0.00756603],[-1,1,-1,4],[-115.681,9E+09,9E+09,9E+09,9E+09,9E+09]],[[495.152,134.276,28.6295],[0.0209424,-0.483241,0.874282,0.0408663],[-1,1,-1,4],[-121.115,9E+09,9E+09,9E+09,9E+09,9E+09]],[[532.631,137.117,29.7162],[0.0369322,-0.552465,0.832413,0.0225099],[-1,1,-1,4],[-123.562,9E+09,9E+09,9E+09,9E+09,9E+09]]];
+    CONST robTarget recArray_8{6}:=[[[350.237,191.002,25.2411],[0.050675,0.210854,-0.975003,-0.0483868],[-1,1,-1,4],[-118.095,9E+09,9E+09,9E+09,9E+09,9E+09]],[[382.447,192.247,25.8949],[0.018614,0.218505,-0.9752,-0.0298923],[-1,1,-1,4],[-117.959,9E+09,9E+09,9E+09,9E+09,9E+09]],[[415.299,193.418,26.8287],[0.0160772,-0.22591,0.973806,0.0202008],[-1,1,-1,4],[-118.567,9E+09,9E+09,9E+09,9E+09,9E+09]],[[454.401,191.024,27.99],[0.0541068,-0.274093,0.959668,0.0313383],[-1,1,-1,4],[-121.54,9E+09,9E+09,9E+09,9E+09,9E+09]],[[488.979,190.576,28.653],[0.000373334,-0.593417,0.80314,0.0531242],[-1,1,-1,4],[-128.669,9E+09,9E+09,9E+09,9E+09,9E+09]],[[533.891,195.022,30.29],[0.00802881,-0.65879,0.751129,0.0416818],[-1,1,-1,4],[-137.344,9E+09,9E+09,9E+09,9E+09,9E+09]]];
+    CONST robTarget recArray_9{6}:=[[[345.046,240.82,24.994],[0.0701282,0.604395,-0.792843,-0.0344729],[-1,1,-1,4],[-115.753,9E+09,9E+09,9E+09,9E+09,9E+09]],[[385.26,243.483,25.9645],[0.033929,0.603585,-0.796242,-0.0230844],[-1,1,-1,4],[-116.309,9E+09,9E+09,9E+09,9E+09,9E+09]],[[416.084,242.907,27.1205],[0.0135319,0.622572,-0.782079,-0.0239625],[-1,1,-1,4],[-117.82,9E+09,9E+09,9E+09,9E+09,9E+09]],[[452.549,242.01,28.3863],[0.00520392,-0.639169,0.768365,0.0324262],[-1,1,-1,4],[-121.227,9E+09,9E+09,9E+09,9E+09,9E+09]],[[489.63,242.196,28.7822],[0.0127241,-0.701131,0.712811,0.0124168],[-1,1,-1,4],[-125.452,9E+09,9E+09,9E+09,9E+09,9E+09]],[[532.76,241.853,30.2173],[0.00723688,0.767534,-0.640912,-0.00842519],[-1,1,-1,4],[-135.796,9E+09,9E+09,9E+09,9E+09,9E+09]]];
+    CONST robTarget recArray_10{6}:=[[[347.242,295.292,25.4819],[0.0589799,0.732319,-0.675924,-0.0579409],[-1,1,-1,4],[-126.994,9E+09,9E+09,9E+09,9E+09,9E+09]],[[381.836,287.242,27.3426],[0.0442405,0.74133,-0.668684,-0.036517],[-1,1,-1,4],[-128.019,9E+09,9E+09,9E+09,9E+09,9E+09]],[[415.785,290.292,27.216],[0.0307818,0.747631,-0.662927,-0.0250701],[-1,1,-1,4],[-132.871,9E+09,9E+09,9E+09,9E+09,9E+09]],[[451.963,295.55,29.5533],[0.0117111,0.757556,-0.651962,-0.0302949],[-1,1,-1,4],[-133.921,9E+09,9E+09,9E+09,9E+09,9E+09]],[[492.478,293.497,30.1398],[0.0188577,0.794403,-0.605709,-0.0410359],[-1,1,-1,4],[-137.607,9E+09,9E+09,9E+09,9E+09,9E+09]],[[530.757,287.83,30.2625],[0.0212999,0.827292,-0.561153,-0.0155148],[-1,1,-1,4],[-141.812,9E+09,9E+09,9E+09,9E+09,9E+09]]];
+
+    PROC main()
+        VAR string data;
+        VAR robtarget position;
+        VAR jointtarget joints;
+        VAR clock timer;
+        VAR string time;
+
+        VAR string j_1;
+        VAR string j_2;
+        VAR string j_3;
+        VAR string j_4;
+        VAR string j_5;
+        VAR string j_6;
+        VAR string j_7;
+
+
+        TPErase;
+        moveCompleted:=TRUE;
+
+
+        !SetLeadThrough\On;
+        MoveAbsJ Home_start_dex,v100\T:=5,z50,tool_manual;
+        WaitRob\InPos;
+        WHILE connect_1 DO
+            connect_:=TRUE;
+            WHILE connect_ DO
+                MoveAbsJ Home_default,v80\T:=5,z50,tool_manual;
+                WaitRob\InPos;
+                IF count=1 THEN
+                    pick_mod:=recArray_1{nCount};
+                ELSEIF count=2 THEN
+                    pick_mod:=recArray_2{nCount};
+                ELSEIF count=3 THEN
+                    pick_mod:=recArray_3{nCount};
+                ELSEIF count=4 THEN
+                    pick_mod:=recArray_4{nCount};
+                ELSEIF count=5 THEN
+                    pick_mod:=recArray_4{nCount};
+                ELSEIF count=6 THEN
+                    pick_mod:=recArray_6{nCount};
+                ELSEIF count=7 THEN
+                    pick_mod:=recArray_7{nCount};
+                ELSEIF count=8 THEN
+                    pick_mod:=recArray_8{nCount};
+                ELSEIF count=9 THEN
+                    pick_mod:=recArray_9{nCount};
+                ELSEIF count=10 THEN
+                    pick_mod:=recArray_10{nCount};
+                ENDIF
+                Axis:=pick_mod;
+                Axis.trans.z:=Stop_c.trans.z+150;
+                MoveJ Axis,v100,z50,tool_manual\WObj:=wobj0;
+                WaitRob\InPos;
+                MoveL pick_mod,v100,z50,tool_manual\WObj:=wobj0;
+                WaitRob\InPos;
+
+                nCount:=nCount+1;
+
+                IF nCount=7 THEN
+                    connect_:=FALSE;
+                    TPWrite "ALL arrays checked";
+                    nCount:=1;
+                ENDIF
+
+            ENDWHILE
+            count:=count+1;
+            IF count=11 THEN
+                connect_1:=FALSE;
+                TPWrite "ALL columns checked";
+            ENDIF
+        ENDWHILE
+
+
+        !MoveAbsJ Start_,v50\T:=2,z50,tool_manual;
+
+        !WaitRob\InPos;
+        !MoveAbsJ Intr,v50\T:=1,z50,tool_manual;
+        !ClkStart timer;
+        !time:=CTime();
+        !IF count>=1000 THEN
+        !ConfL\Off;
+        !SingArea\Wrist;
+        !MoveL\Conc, via_1,v20,z50,tool_manual\WObj:=wobj0;
+        !MoveL\Conc, via_2,v20,z50,tool_manual\WObj:=wobj0;
+        !MoveL\Conc, via_3,v20,z50,tool_manual\WObj:=wobj0;
+        !MoveL\Conc, via_4,v20,z50,tool_manual\WObj:=wobj0;
+        !Stop_c.robconf:=[1,2,0,0];
+        !Axis:=Stop_c;
+        !Axis.trans.z:=Stop_c.trans.z+150;
+        !MoveJ Axis,v50,z50,tool_manual\WObj:=wobj0;
+        !MoveL Stop_c,v50,z50,tool_manual\WObj:=wobj0;
+        !WaitRob\InPos;
+        !ELSE
+        !MoveAbsJ\Conc,Stop_,v50\T:=5,z50,tool_manual;
+        !ENDIF
+        !MoveAbsJ Start_,v50\T:=2,z50,tool_manual;
+        !WHILE connect_ DO
+        !SocketReceive clientSocket\Str:=ack;
+        !IF ack="CONTINUE" THEN
+        !joints:=CJointT();
+        !data:="";
+        ! SEND JOINT ANGLES - 1
+        !data:=data+NumToStr(ClkRead(timer),2)+",";
+        !data:=data+NumToStr(joints.robax.rax_1,2)+",";
+        !data:=data+NumToStr(joints.robax.rax_2,2)+",";
+        !data:=data+NumToStr(joints.robax.rax_3,2)+",";
+        !SocketSend clientSocket\Str:=data;
+        !SocketReceive clientSocket\Str:=data;
+        !data:="";
+        !data:=data+NumToStr(joints.robax.rax_4,2)+",";
+        !data:=data+NumToStr(joints.robax.rax_5,2)+",";
+        !data:=data+NumToStr(joints.robax.rax_6,2)+",";
+        !data:=data+NumToStr(joints.extax.eax_a,2);
+        !data := data + "_";
+        ! SEND JOINT ANGLES -2
+        !SocketSend clientSocket\Str:=data;
+        !WaitTime 0.5;
+        !ELSEIF ack="STOP" THEN
+        !connect_:=FALSE;
+        !count := count+1;
+        !ENDIF
+
+
+        ! Receive status from python 
+        !SocketReceive clientSocket\Str:=stat;
+        !IF stat="CONTINUE" THEN
+        !connect_:=TRUE;
+        !TPWrite "CONTINUE Received";
+        !WaitTime 0.1;
+        !TPWrite "Initiating next experiment...";
+
+        !ELSEIF stat="STOP" THEN
+        !SocketClose clientSocket;
+        !WaitTime 0.5;
+        !TPWrite "STOP Received";
+        !connect_:=FALSE;
+        ! clientSocket;
+        !TPWrite "Robot Client socket closed";
+        !ENDIF
+
+
+        !ENDWHILE
+
+        !SocketClose clientSocket;
+        !SocketClose serverSocket;
+        !ClkReset timer;
+        !WaitTime 2;
+        !TPWrite "Server socket closed";
+
+        !ERROR
+        !IF ERRNO=ERR_HAND_NOTCALIBRATED THEN
+        !TPWrite "Gripper calibration started...";
+        !g_Init\Calibrate,\Grip;
+        !TPWrite "Gripper calibration done...";
+        !RETRY;
+        !ELSEIF ERRNO=ERR_STRTOOLNG THEN
+        !TPWrite "Coordinate string format too long";
+
+        !ELSE
+        !TPWrite "Unable to calculate joints for given posse";
+        !ENDIF
+
+        !IF myerrnum=ERR_ROBLIMIT THEN
+        !TPWrite "Joint cannot be reached.";
+        !ELSEIF myerrnum=ERR_OUTSIDE_REACH THEN
+        !TPWrite "Joint position is outside reach.";
+        !ELSE
+        !MoveAbsJ objJoint,v100,fine,TGripL;
+        !ENDIF
+        !SOCKET RELATED ERRORS
+        !IF ERRNO=ERR_SOCK_TIMEOUT THEN
+        !TPWrite "Socket timed out";
+        !RETRY;
+        !ENDIF
+        !IF ERRNO=ERR_SOCK_CLOSED THEN
+        !Restart socket
+
+        !RETRY;
+        !ENDIF
+
+
+    ENDPROC
+
+    ! FUNCTION TO CHECK POSE REACHABILITY
+    !FUNC bool isPoseReachable(robtarget pose,PERS tooldata tool,PERS wobjdata wobj)
+    !FUNC bool isPoseReachable()
+
+    !VAR jointtarget joints;
+
+
+    !joints:=CalcJointT(pose,tool\Wobj:=wobj);
+    !TPWrite "Checking for reachability...";
+    !TPWrite "Joints values: "+ValToStr(joints);
+
+    !IF ERRNO=50065 OR ERRNO=50145 THEN
+    !ack:="Received pose of Kinematic limitation";
+    !ELSEIF ERRNO=50161 THEN
+    !ack:="Recevied pose is close to singularity area";
+    !ELSE
+    !ack:="Received pose is reachable";
+    !ENDIF
+    !ack:="__Received reachable pose__";
+    !RETURN reachable;
+
+    !ERROR
+    !IF ERRNO=ERR_ROBLIMIT OR ERRNO=ERR_OUTSIDE_REACH THEN
+    ! reachable:=FALSE;
+    ! ack:="__Received unreachable pose__";
+    ! TRYNEXT;
+    !ELSE
+    ! reachable:=TRUE;
+    !ENDIF
+    !RETURN reachable;
+
+    !ENDFUNC
+
+    ! FUNCTION TO CHECK JOINT REACHABILITY
+    !FUNC bool isJointsReachable(jointtarget joints,PERS tooldata tool,PERS wobjdata wobj)
+    ! VAR bool reachable:=True;
+    ! VAR robtarget pose;
+
+    ! pose:=CalcRobT(joints,tool\Wobj:=wobj);
+    ! objTarget:=pose;
+    ! RETURN reachable;
+
+    !ERROR
+    ! reachable:=FALSE;
+    ! TRYNEXT;
+    !ENDFUNC
+
+    FUNC robtarget StringToTarget(string value,string rot,string value_1)
+        VAR robtarget tempTarget;
+        VAR bool bResult;
+
+        VAR num posX;
+        VAR num posY;
+        VAR num posZ;
+
+        VAR num Q1;
+        VAR num Q2;
+        VAR num Q3;
+        VAR num Q4;
+
+        VAR num CF1;
+        VAR num CF2;
+        VAR num CF3;
+        VAR num CF4;
+
+        VAR num EXT1;
+
+        ! Finding split positions
+        posX:=StrFind(value,1,",");
+        posY:=StrFind(value,posX+1,",");
+        posZ:=StrFind(value,posY+1,",");
+
+        Q1:=StrFind(rot,1,",");
+        Q2:=StrFind(rot,Q1+1,",");
+        Q3:=StrFind(rot,Q2+1,",");
+        Q4:=StrFind(rot,Q3+1,",");
+
+        CF1:=StrFind(value_1,1,",");
+        CF2:=StrFind(value_1,CF1+1,",");
+        CF3:=StrFind(value_1,CF2+1,",");
+        CF4:=StrFind(value_1,CF3+1,",");
+
+        EXT1:=StrFind(value_1,CF4+1,",");
+
+        ! Read strings and store in tempTarget (robTarget dtype) - StrPart (Str ChPos Len)
+        ! position
+        bResult:=StrToVal(StrPart(value,1,posX-1),tempTarget.trans.x);
+        bResult:=StrToVal(StrPart(value,posX+1,posY-posX-1),tempTarget.trans.y);
+        bResult:=StrToVal(StrPart(value,posY+1,posZ-posY-1),tempTarget.trans.z);
+        ! orientation
+        bResult:=StrToVal(StrPart(rot,1,Q1-1),tempTarget.rot.q1);
+        bResult:=StrToVal(StrPart(rot,Q1+1,Q2-Q1-1),tempTarget.rot.q2);
+        bResult:=StrToVal(StrPart(rot,Q2+1,Q3-Q2-1),tempTarget.rot.q3);
+        bResult:=StrToVal(StrPart(rot,Q3+1,Q4-Q3-1),tempTarget.rot.q4);
+        ! config data
+        bResult:=StrToVal(StrPart(value_1,1,CF1-1),tempTarget.robconf.cf1);
+        bResult:=StrToVal(StrPart(value_1,CF1+1,CF2-CF1-1),tempTarget.robconf.cf4);
+        bResult:=StrToVal(StrPart(value_1,CF2+1,CF3-CF2-1),tempTarget.robconf.cf6);
+        bResult:=StrToVal(StrPart(value_1,CF3+1,CF4-CF3-1),tempTarget.robconf.cfx);
+        ! external axis data
+        bResult:=StrToVal(StrPart(value_1,CF4+1,EXT1-CF4-1),tempTarget.extax.eax_a);
+
+        RETURN tempTarget;
+    ENDFUNC
+
+ENDMODULE

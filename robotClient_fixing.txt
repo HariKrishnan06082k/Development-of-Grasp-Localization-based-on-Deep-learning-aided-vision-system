@@ -1,0 +1,338 @@
+MODULE MainModule
+    ! Socket related variables
+    VAR socketdev serverSocket;
+    VAR socketdev clientSocket;
+    VAR bool connect_:=TRUE;
+
+    VAR bool reachable:=TRUE;
+
+    ! FORMAT: "x,y,z,q1,q2,q3,q4,cf1,cf4,cf6,cfx," 
+    !VAR string data:="326.30,-435.73,204.81,1,0,0,0,1,-1,1,4,";
+    VAR string data:="";
+    VAR string trans:="";
+    VAR string rot:="";
+    VAR string config_rob_ext:="";
+
+    VAR string stat:="";
+    VAR string ack:="";
+    VAR robTarget objTarget;
+    VAR jointtarget objJoint;
+
+    VAR extjoint externalAxis;
+    VAR jointtarget jointsTarget;
+    
+    VAR jointtarget Start_;
+    VAR jointtarget Stop_;
+    VAR robTarget Stop_c;
+
+
+    !PERS tooldata TGripL:=[TRUE,[[0,0,141],[1,0,0,0]],[0.244,[7.5,11.8,52.7],[1,0,0,0],0.00021,0.00023,8E-05]];
+    PERS wobjdata currentWobj:=[FALSE,TRUE,"",[[385.27,-122.23,125.45],[0.17560,0.88494,-0.04215,0.42925]],[[0,0,0],[1,0,0,0]]];
+    VAR bool moveCompleted;
+
+    ! Robot Constants
+    CONST jointtarget Home_start_dex:=[[-21.90,-71.41,3.83,69.91,96.27,0],[17.64,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST jointtarget Home_default:=[[-76.8967,-28.9329,25.3776,89.4051,77.2713,-64.8495],[57.5165,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST robTarget Home_default_c:=[[494.803,22.9747,236.229],[0.0165356,0.0396729,0.998926,0.0173008],[-1,1,-1,4],[-165.621,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    VAR robTarget Axis;
+    
+    CONST jointtarget Home:=[[-11.35,-23.82,63.84,78.61,67.74,90.27],[-1.05,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST jointtarget Pick:=[[-19.38,35.98,3.29,57.42,15.78,50.34],[46.45,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST jointtarget Intr:=[[37.41,-31.02,-2.57,-12.53,76.73,99.08],[63.25,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    CONST jointtarget Drop:=[[92.76,34.59,-30.47,-58.17,62.67,103.17],[1.41,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    PERS tooldata TGripLnew:=[TRUE,[[9.50551,40.3558,123.402],[1,0,0,0]],[0.244,[7.5,11.8,52.7],[1,0,0,0],0.00021,0.00023,8E-05]];
+    PERS tooldata TGripLnewmodified:=[TRUE,[[0,0,150],[1,0,0,0]],[0.244,[7.5,11.8,52.7],[1,0,0,0],0.00021,0.00023,8E-05]];
+    PERS tooldata TGripL:=[TRUE,[[-0.233031,-0.111434,135.858],[1,0,0,0]],[0.244,[7.5,11.8,52.7],[1,0,0,0],0.00021,0.00023,8E-05]];
+
+    VAR errnum myerrnum;
+    TASK PERS tooldata tool1:=[TRUE,[[0,0,0],[1,0,0,0]],[-1,[0,0,0],[1,0,0,0],0,0,0]];
+    TASK PERS tooldata tool_manual:=[TRUE,[[0,0,136],[1,0,0,0]],[0.244,[7.5,11.8,52.7],[1,0,0,0],0.00021,0.00023,8E-05]];
+    VAR robTarget pick_mod:=[[435.5,31.634,43.95399],[0.03734,-0.020254,-0.97821,0.02623],[-1,1,-1,4],[-123.168,9E+09,9E+09,9E+09,9E+09,9E+09]];
+    
+    VAR robTarget curRob;
+    VAR jointtarget curJ;
+
+    PROC main()
+        g_Init\maxSpd:=20,\holdForce:=8,\Calibrate,\Grip;
+        TPErase;
+        TPWrite "Gripper okay...";
+        !curRob:=CRobT();
+        !curRob.rot.q1:=0;
+        !curRob.rot.q2:=1;
+        !curRob.rot.q3:=0;
+        !curRob.rot.q4:=0;
+        !MoveJ curRob,v50,z50,tool_manual\WObj:=wobj0;
+
+        moveCompleted:=TRUE;
+        MoveAbsJ\Conc, Home_start_dex,v100\T:=5,z50,tool_manual;
+        !WaitRob\InPos;
+
+        ! -- CODE FOR SOCKET SERVER GO HERE ---
+        connect_:=TRUE;
+        SocketCreate serverSocket;
+        WHILE connect_ DO
+            SocketCreate clientSocket;
+            ! Waiting for python client request for communication
+            SocketConnect clientSocket,"192.168.125.50",60064\Time:=WAIT_MAX;
+            ! Receive trans and rot from python -------------------------R1
+            !SocketReceive clientSocket\Str:=data;
+            SocketReceive clientSocket\Str:=trans;
+            TPWrite "Received trans from Python: "+trans;
+            ! Send confirmation --------------------------------S1
+            SocketSend clientSocket\Str:="RECEIVED TRANS";
+            ! Receive rot from python ------------------------------------R2
+            SocketReceive clientSocket\Str:=rot;
+            TPWrite "Received rot from Python: "+rot;
+            ! Send confirmation --------------------------------S2
+            SocketSend clientSocket\Str:="RECEIVED TRANS";
+            ! Receive config and ext from python -------------------------R3
+            SocketReceive clientSocket\Str:=config_rob_ext;
+            TPWrite "Received config and ext from Python: "+config_rob_ext;
+            ! Send confirmation --------------------------------S3
+            SocketSend clientSocket\Str:="RECEIVED CONFIG and EXT";
+
+            objTarget:=StringToTarget(trans,rot,config_rob_ext);
+            WaitTime 0.2;
+            !IF isPoseReachable(objTarget,TGripL,currentWobj)=TRUE THEN
+            !objJoint:=CalcJointT(objTarget,TGripL\WObj:=currentWobj);
+            !IF isPoseReachable() THEN
+            !-----------------------------------------------------------S4
+            SocketSend clientSocket\Str:="_Received reachable pose_";
+            pick_mod:=objTarget;
+            
+            pick_mod.trans.x:=pick_mod.trans.x - 80;
+            pick_mod.trans.y:=pick_mod.trans.y + 25;
+            pick_mod.trans.z:=pick_mod.trans.z + 30;
+            !pick_mod.rot:=[0.0220693,0.129952,-0.990724,-0.0330379];
+            !pick_mod.rot.q1:=1;
+            !pick_mod.rot.q2:=0;
+            !pick_mod.rot.q3:=0;
+            !pick_mod.rot.q4:=0;
+            pick_mod.robconf.cf1 := -1;
+            pick_mod.robconf.cf4 := 1;
+            pick_mod.robconf.cf6 := -1;
+            pick_mod.robconf.cfx := 4;
+            pick_mod.extax.eax_a:=-117.959;
+            
+            
+            ! -- ROBOT TASKS GO DOWN HERE -- 
+            MoveAbsJ\Conc, Home_default,v80\T:=5,z50,tool_manual;
+            !WaitRob\InPos;
+            TPWrite "Moving towards pick pose";
+            Axis:=pick_mod;
+            Axis.trans.z:=pick_mod.trans.z+150;
+            MoveJ\Conc, Axis,v100,z50,tool_manual\WObj:=wobj0;
+            TPWrite "Gripper extending";
+            g_GripOut;
+            !curJ:=CJointT();
+            !curJ.robax.rax_6:=curJ.robax.rax_6+90;
+            !MoveAbsJ curJ,v100,z50,tool_manual\WObj:=wobj0;
+            WaitRob\InPos;
+            WaitTime 3;
+            TPWrite "Reached pick pose";
+            SingArea\Wrist;
+            ConfL\On;
+            MoveL pick_mod,v20,z50,tool_manual\WObj:=wobj0;
+            WaitRob\InPos;
+            g_GripIn;
+            WaitTime 1;
+            TPWrite "Grasped object";
+            MoveAbsJ Drop,v100,z50,tool_manual\WObj:=wobj0;
+            WaitRob\InPos;
+            g_GripOut;
+            TPWrite "Object dropped";
+
+            MoveAbsJ Home_start_dex,v100,z50,tool_manual\WObj:=wobj0;
+            TPWrite "Task completed";
+            ! Send confirmation task done ------------------------2
+            SocketSend clientSocket\Str:="TASK DONE";
+            !End socket for multiple client application
+
+            !ELSE
+            !SocketSend clientSocket\Str:="Received unreachable pose";
+            !WaitTime 0.5;
+            !TPWrite "Task terminated";
+            !SocketSend clientSocket\Str:="CURRENT TASK TERMINATED";
+            !ENDIF
+
+            ! Receive status from python ------------------------ 2
+            SocketReceive clientSocket\Str:=stat;
+            IF stat="CONTINUE" THEN
+                connect_:=TRUE;
+                TPWrite "CONTINUE Received";
+                WaitTime 0.5;
+                TPWrite "Initiating next task...";
+                SocketClose clientSocket;
+                WaitTime 0.1;
+                TPWrite "Robot Client socket closed";
+                WaitTime 0.2;
+            ELSEIF stat="STOP" THEN
+                WaitTime 0.5;
+                SocketClose clientSocket;
+                WaitTime 0.5;
+                TPWrite "STOP Received";
+                connect_:=FALSE;
+                SocketClose clientSocket;
+                WaitTime 0.1;
+                TPWrite "Robot Client socket closed";
+                WaitTime 0.2;
+            ENDIF
+
+
+        ENDWHILE
+
+
+        SocketClose serverSocket;
+        WaitTime 2;
+        TPWrite "Server socket closed";
+        WaitTime 3;
+
+    ERROR
+        IF ERRNO=ERR_HAND_NOTCALIBRATED THEN
+            TPWrite "Gripper calibration started...";
+            g_Init\Calibrate,\Grip;
+            TPWrite "Gripper calibration done...";
+            RETRY;
+        ELSEIF ERRNO=ERR_STRTOOLNG THEN
+            TPWrite "Coordinate string format too long";
+
+        ELSE
+            TPWrite "Unable to calculate joints for given posse";
+        ENDIF
+
+        IF myerrnum=ERR_ROBLIMIT THEN
+            TPWrite "Joint cannot be reached.";
+        ELSEIF myerrnum=ERR_OUTSIDE_REACH THEN
+            TPWrite "Joint position is outside reach.";
+        ELSE
+            !MoveAbsJ objJoint,v100,fine,TGripL;
+        ENDIF
+        !SOCKET RELATED ERRORS
+        IF ERRNO=ERR_SOCK_TIMEOUT THEN
+            TPWrite "Socket timed out";
+            RETRY;
+        ENDIF
+        IF ERRNO=ERR_SOCK_CLOSED THEN
+            !Restart socket
+
+            RETRY;
+        ENDIF
+
+
+    ENDPROC
+
+    ! FUNCTION TO CHECK POSE REACHABILITY
+    FUNC bool isPoseReachable(robtarget pose,PERS tooldata tool,PERS wobjdata wobj)
+        !FUNC bool isPoseReachable()
+
+        VAR jointtarget joints;
+
+
+        joints:=CalcJointT(pose,tool\Wobj:=wobj);
+        TPWrite "Checking for reachability...";
+        !TPWrite "Joints values: "+ValToStr(joints);
+
+        IF ERRNO=50065 OR ERRNO=50145 THEN
+            reachable:=FALSE;
+            ack:="Received pose of Kinematic limitation";
+        ELSEIF ERRNO=50161 THEN
+            reachable:=FALSE;
+            ack:="Recevied pose is close to singularity area";
+        ELSE
+            ack:="Received pose is reachable";
+        ENDIF
+        !ack:="__Received reachable pose__";
+        RETURN reachable;
+
+    ERROR
+        IF ERRNO=ERR_ROBLIMIT OR ERRNO=ERR_OUTSIDE_REACH THEN
+            reachable:=FALSE;
+            ack:="__Received unreachable pose__";
+            TRYNEXT;
+        ELSE
+            reachable:=TRUE;
+        ENDIF
+        RETURN reachable;
+
+    ENDFUNC
+
+    ! FUNCTION TO CHECK JOINT REACHABILITY
+    FUNC bool isJointsReachable(jointtarget joints,PERS tooldata tool,PERS wobjdata wobj)
+        VAR bool reachable:=True;
+        VAR robtarget pose;
+
+        pose:=CalcRobT(joints,tool\Wobj:=wobj);
+        objTarget:=pose;
+        RETURN reachable;
+
+    ERROR
+        reachable:=FALSE;
+        TRYNEXT;
+    ENDFUNC
+
+    FUNC robtarget StringToTarget(string value,string rot,string value_1)
+        VAR robtarget tempTarget;
+        VAR bool bResult;
+
+        VAR num posX;
+        VAR num posY;
+        VAR num posZ;
+
+        VAR num Q1;
+        VAR num Q2;
+        VAR num Q3;
+        VAR num Q4;
+
+        VAR num CF1;
+        VAR num CF2;
+        VAR num CF3;
+        VAR num CF4;
+
+        VAR num EXT1;
+
+        ! Finding split positions
+        posX:=StrFind(value,1,",");
+        posY:=StrFind(value,posX+1,",");
+        posZ:=StrFind(value,posY+1,",");
+
+        Q1:=StrFind(rot,1,",");
+        Q2:=StrFind(rot,Q1+1,",");
+        Q3:=StrFind(rot,Q2+1,",");
+        Q4:=StrFind(rot,Q3+1,",");
+
+        CF1:=StrFind(value_1,1,",");
+        CF2:=StrFind(value_1,CF1+1,",");
+        CF3:=StrFind(value_1,CF2+1,",");
+        CF4:=StrFind(value_1,CF3+1,",");
+
+        EXT1:=StrFind(value_1,CF4+1,",");
+
+        ! Read strings and store in tempTarget (robTarget dtype) - StrPart (Str ChPos Len)
+        ! position
+        bResult:=StrToVal(StrPart(value,1,posX-1),tempTarget.trans.x);
+        bResult:=StrToVal(StrPart(value,posX+1,posY-posX-1),tempTarget.trans.y);
+        bResult:=StrToVal(StrPart(value,posY+1,posZ-posY-1),tempTarget.trans.z);
+        ! orientation
+        bResult:=StrToVal(StrPart(rot,1,Q1-1),tempTarget.rot.q1);
+        bResult:=StrToVal(StrPart(rot,Q1+1,Q2-Q1-1),tempTarget.rot.q2);
+        bResult:=StrToVal(StrPart(rot,Q2+1,Q3-Q2-1),tempTarget.rot.q3);
+        bResult:=StrToVal(StrPart(rot,Q3+1,Q4-Q3-1),tempTarget.rot.q4);
+        ! config data
+        bResult:=StrToVal(StrPart(value_1,1,CF1-1),tempTarget.robconf.cf1);
+        bResult:=StrToVal(StrPart(value_1,CF1+1,CF2-CF1-1),tempTarget.robconf.cf4);
+        bResult:=StrToVal(StrPart(value_1,CF2+1,CF3-CF2-1),tempTarget.robconf.cf6);
+        bResult:=StrToVal(StrPart(value_1,CF3+1,CF4-CF3-1),tempTarget.robconf.cfx);
+        ! external axis data
+        jointsTarget:=CJointT();
+        externalAxis:=jointsTarget.extax;
+        !ValtoStr(jointsTarget);
+        bResult:=StrToVal(ValtoStr(externalAxis),tempTarget.extax.eax_a);
+        tempTarget.extax.eax_b:=9E+09;
+        tempTarget.extax.eax_c:=9E+09;
+        tempTarget.extax.eax_d:=9E+09;
+        tempTarget.extax.eax_e:=9E+09;
+        tempTarget.extax.eax_f:=9E+09;
+
+        RETURN tempTarget;
+    ENDFUNC
+ENDMODULE
